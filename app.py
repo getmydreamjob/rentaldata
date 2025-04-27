@@ -138,4 +138,3 @@ elif st.session_state["mode"] == "Highest Paying ZIPs":
         if len(filtered) > st.session_state["num_results"]:
             if st.button("Show more"):
                 st.session_state["num_results"] += 10
-                st.experimental_rerun()
