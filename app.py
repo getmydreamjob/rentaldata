@@ -19,6 +19,8 @@ fmr_df = load_fmr_data()
 # --- Session State Initialization ---
 if "mode" not in st.session_state:
     st.session_state["mode"] = "FMR Rental Data"
+if "num_results" not in st.session_state:
+    st.session_state["num_results"] = 10  # Default top 10
 
 # --- Extract clean 2-letter State Codes ---
 if "State" not in fmr_df.columns:
@@ -36,10 +38,12 @@ col1, col2 = st.columns(2)
 with col1:
     if st.button("🏡 FMR Rental Data"):
         st.session_state["mode"] = "FMR Rental Data"
+        st.session_state["num_results"] = 10
 
 with col2:
     if st.button("💰 Highest Paying ZIPs"):
         st.session_state["mode"] = "Highest Paying ZIPs"
+        st.session_state["num_results"] = 10
 
 st.divider()
 
@@ -118,15 +122,20 @@ elif st.session_state["mode"] == "Highest Paying ZIPs":
     filtered = fmr_df[fmr_df["State"] == selected_state]
     filtered = filtered[filtered[selected_rent_col].notna()]
 
-    top10 = filtered[['ZIP Code', selected_rent_col]].sort_values(by=selected_rent_col, ascending=False).head(10)
+    top_results = filtered[['ZIP Code', selected_rent_col]].sort_values(by=selected_rent_col, ascending=False).head(st.session_state["num_results"])
 
-    if top10.empty:
+    if top_results.empty:
         st.warning("No matching ZIP codes found.")
     else:
-        top10_display = pd.DataFrame({
-            "ZIP Code": top10['ZIP Code'].astype(str),
-            "Rent Amount": top10[selected_rent_col].apply(lambda x: f"${int(x):,}")
+        top_display = pd.DataFrame({
+            "ZIP Code": top_results['ZIP Code'].astype(str),
+            "Rent Amount": top_results[selected_rent_col].apply(lambda x: f"${int(x):,}")
         }).reset_index(drop=True)
 
-        st.success(f"✅ Top 10 Highest Paying ZIP Codes in {selected_state}:")
-        st.table(top10_display)
+        st.success(f"✅ Top {st.session_state['num_results']} Highest Paying ZIP Codes in {selected_state}:")
+        st.table(top_display)
+
+        if len(filtered) > st.session_state["num_results"]:
+            if st.button("Show more"):
+                st.session_state["num_results"] += 10
+                st.experimental_rerun()
