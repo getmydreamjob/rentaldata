@@ -20,6 +20,12 @@ fmr_df = load_fmr_data()
 if "mode" not in st.session_state:
     st.session_state["mode"] = "FMR Rental Data"
 
+# --- Extract State list from HUD Area Name ---
+if "State" not in fmr_df.columns:
+    fmr_df["State"] = fmr_df["HUD Fair Market Rent Area Name"].apply(lambda x: x.split(",")[-1].strip())
+
+states = sorted(fmr_df["State"].dropna().unique().tolist())
+
 # --- Streamlit App UI ---
 st.title("🏠 Fair Market Rent (FMR) Finder")
 st.write("Find the HUD 2025 FMR Rent by ZIP Code and Bedroom Size.")
@@ -88,27 +94,44 @@ if st.session_state["mode"] == "FMR Rental Data":
 
 # --- Highest Paying ZIPs Mode ---
 elif st.session_state["mode"] == "Highest Paying ZIPs":
-    bedrooms = st.selectbox("Select Bedroom Size to Find Top 10 ZIPs:", options=[0,1,2,3,4], format_func=lambda x: f"{x} Bedroom(s)" if x > 0 else "Efficiency", key="high_bedroom_select")
+    selected_state = st.selectbox("Select State:", states, key="state_select")
+    bedrooms = st.selectbox("Select Bedroom Size:", options=[0,1,2,3,4], format_func=lambda x: f"{x} Bedroom(s)" if x > 0 else "Efficiency", key="high_bedroom_select")
+
+    rent_type = st.selectbox("Select Rent Type:", options=["Standard FMR", "90% Payment", "110% Payment"], key="rent_type_select")
+
+    min_rent = st.number_input("Minimum Rent (Optional):", min_value=0, value=0, step=50, key="min_rent")
+    max_rent = st.number_input("Maximum Rent (Optional):", min_value=0, value=10000, step=50, key="max_rent")
 
     bedroom_map = {
-        0: 'SAFMR 0BR',
-        1: 'SAFMR 1BR',
-        2: 'SAFMR 2BR',
-        3: 'SAFMR 3BR',
-        4: 'SAFMR 4BR'
+        0: ('SAFMR 0BR', 'SAFMR 0BR - 90% Payment Standard', 'SAFMR 0BR - 110% Payment Standard'),
+        1: ('SAFMR 1BR', 'SAFMR 1BR - 90% Payment Standard', 'SAFMR 1BR - 110% Payment Standard'),
+        2: ('SAFMR 2BR', 'SAFMR 2BR - 90% Payment Standard', 'SAFMR 2BR - 110% Payment Standard'),
+        3: ('SAFMR 3BR', 'SAFMR 3BR - 90% Payment Standard', 'SAFMR 3BR - 110% Payment Standard'),
+        4: ('SAFMR 4BR', 'SAFMR 4BR - 90% Payment Standard', 'SAFMR 4BR - 110% Payment Standard')
     }
 
-    selected_col = bedroom_map.get(bedrooms)
+    rent_column_map = {
+        "Standard FMR": 0,
+        "90% Payment": 1,
+        "110% Payment": 2
+    }
 
-    top10 = fmr_df[['ZIP Code', selected_col]].dropna().sort_values(by=selected_col, ascending=False).head(10)
+    selected_rent_col = bedroom_map.get(bedrooms)[rent_column_map[rent_type]]
+
+    filtered = fmr_df[fmr_df["State"] == selected_state]
+    filtered = filtered[filtered[selected_rent_col].notna()]
+
+    filtered = filtered[(filtered[selected_rent_col] >= min_rent) & (filtered[selected_rent_col] <= max_rent)]
+
+    top10 = filtered[['ZIP Code', selected_rent_col]].sort_values(by=selected_rent_col, ascending=False).head(10)
 
     if top10.empty:
-        st.warning("No data available for selected bedroom size.")
+        st.warning("No matching ZIP codes found.")
     else:
         top10_display = pd.DataFrame({
             "ZIP Code": top10['ZIP Code'].astype(str),
-            "Rent Amount": top10[selected_col].apply(lambda x: f"${int(x):,}")
+            "Rent Amount": top10[selected_rent_col].apply(lambda x: f"${int(x):,}")
         }).reset_index(drop=True)
 
-        st.success("✅ Top 10 Highest Paying ZIP Codes:")
+        st.success(f"✅ Top 10 Highest Paying ZIP Codes in {selected_state}:")
         st.table(top10_display)
