@@ -1,6 +1,7 @@
-
 import streamlit as st
 import pandas as pd
+
+st.set_page_config(page_title="Fair Market Rent Finder", layout="centered")
 
 # --- Load your FMR data ---
 @st.cache_data
@@ -16,8 +17,7 @@ def load_fmr_data():
 # Load the data
 fmr_df = load_fmr_data()
 
-# --- Streamlit Page Settings ---
-st.set_page_config(page_title="Fair Market Rent Finder", layout="centered")
+# --- Streamlit App UI ---
 st.title("🏠 Fair Market Rent (FMR) Finder")
 st.write("Find the HUD 2025 FMR Rent by ZIP Code and Bedroom Size.")
 
