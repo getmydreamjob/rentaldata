@@ -16,29 +16,33 @@ def load_fmr_data():
 
 fmr_df = load_fmr_data()
 
+# --- Session State Initialization ---
+if "mode" not in st.session_state:
+    st.session_state["mode"] = "FMR Rental Data"
+
 # --- Streamlit App UI ---
 st.title("🏠 Fair Market Rent (FMR) Finder")
 st.write("Find the HUD 2025 FMR Rent by ZIP Code and Bedroom Size.")
 
-# --- Button Selections ---
+# --- Mode Buttons ---
 col1, col2 = st.columns(2)
 
-app_mode = "FMR Rental Data"  # default mode
+with col1:
+    if st.button("🏡 FMR Rental Data"):
+        st.session_state["mode"] = "FMR Rental Data"
 
-if col1.button("🏡 FMR Rental Data"):
-    app_mode = "FMR Rental Data"
-
-if col2.button("💰 Highest Paying ZIPs"):
-    app_mode = "Highest Paying ZIPs"
+with col2:
+    if st.button("💰 Highest Paying ZIPs"):
+        st.session_state["mode"] = "Highest Paying ZIPs"
 
 st.divider()
 
 # --- FMR Rental Data Mode ---
-if app_mode == "FMR Rental Data":
-    zip_code = st.text_input("Enter ZIP Code (5 digits):")
-    bedrooms = st.selectbox("Select Number of Bedrooms:", options=[0,1,2,3,4], format_func=lambda x: f"{x} Bedroom(s)" if x > 0 else "Efficiency")
+if st.session_state["mode"] == "FMR Rental Data":
+    zip_code = st.text_input("Enter ZIP Code (5 digits):", key="zip_input")
+    bedrooms = st.selectbox("Select Number of Bedrooms:", options=[0,1,2,3,4], format_func=lambda x: f"{x} Bedroom(s)" if x > 0 else "Efficiency", key="bedroom_select")
 
-    if st.button("Find Rent"):
+    if st.button("Find Rent", key="find_rent_button"):
         if not zip_code:
             st.warning("Please enter a valid ZIP code.")
         else:
@@ -83,8 +87,8 @@ if app_mode == "FMR Rental Data":
                     st.table(result_df)
 
 # --- Highest Paying ZIPs Mode ---
-elif app_mode == "Highest Paying ZIPs":
-    bedrooms = st.selectbox("Select Bedroom Size to Find Top 10 ZIPs:", options=[0,1,2,3,4], format_func=lambda x: f"{x} Bedroom(s)" if x > 0 else "Efficiency")
+elif st.session_state["mode"] == "Highest Paying ZIPs":
+    bedrooms = st.selectbox("Select Bedroom Size to Find Top 10 ZIPs:", options=[0,1,2,3,4], format_func=lambda x: f"{x} Bedroom(s)" if x > 0 else "Efficiency", key="high_bedroom_select")
 
     bedroom_map = {
         0: 'SAFMR 0BR',
