@@ -122,19 +122,22 @@ elif st.session_state["mode"] == "Highest Paying ZIPs":
     filtered = fmr_df[fmr_df["State"] == selected_state]
     filtered = filtered[filtered[selected_rent_col].notna()]
 
-    top_results = filtered[['ZIP Code', selected_rent_col]].sort_values(by=selected_rent_col, ascending=False).head(st.session_state["num_results"])
+    # Add sorting functionality
+    sort_order = st.selectbox("Sort by:", ["Ascending", "Descending"], key="sort_order")
 
-    if top_results.empty:
-        st.warning("No matching ZIP codes found.")
+    if sort_order == "Ascending":
+        top_results = filtered[['ZIP Code', selected_rent_col]].sort_values(by=selected_rent_col, ascending=True)
     else:
-        top_display = pd.DataFrame({
-            "ZIP Code": top_results['ZIP Code'].astype(str),
-            "Rent Amount": top_results[selected_rent_col].apply(lambda x: f"${int(x):,}")
-        }).reset_index(drop=True)
+        top_results = filtered[['ZIP Code', selected_rent_col]].sort_values(by=selected_rent_col, ascending=False)
 
-        st.success(f"✅ Top {st.session_state['num_results']} Highest Paying ZIP Codes in {selected_state}:")
-        st.table(top_display)
+    top_display = pd.DataFrame({
+        "ZIP Code": top_results['ZIP Code'].astype(str),
+        "Rent Amount": top_results[selected_rent_col].apply(lambda x: f"${int(x):,}")
+    }).reset_index(drop=True)
 
-        if len(filtered) > st.session_state["num_results"]:
-            if st.button("Show more"):
-                st.session_state["num_results"] += 10
+    st.success(f"✅ Top {len(top_display)} Highest Paying ZIP Codes in {selected_state}:")
+    st.table(top_display)
+
+    if len(filtered) > len(top_display):
+        if st.button("Show more"):
+            st.session_state["num_results"] += 10
