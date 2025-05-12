@@ -47,61 +47,16 @@ with col2:
 
 st.divider()
 
-# --- FMR Rental Data Mode ---
-if st.session_state["mode"] == "FMR Rental Data":
-    zip_code = st.text_input("Enter ZIP Code (5 digits):", key="zip_input")
-    bedrooms = st.selectbox("Select Number of Bedrooms:", options=[0,1,2,3,4], format_func=lambda x: f"{x} Bedroom(s)" if x > 0 else "Efficiency", key="bedroom_select")
-
-    if st.button("Find Rent", key="find_rent_button"):
-        if not zip_code:
-            st.warning("Please enter a valid ZIP code.")
-        else:
-            zip_code = str(zip_code).zfill(5)
-            record = fmr_df[fmr_df['ZIP Code'].astype(str).str.zfill(5) == zip_code]
-
-            if record.empty:
-                st.error("❌ ZIP code not found.")
-            else:
-                bedroom_map = {
-                    0: ('SAFMR 0BR', 'SAFMR 0BR - 90% Payment Standard', 'SAFMR 0BR - 110% Payment Standard'),
-                    1: ('SAFMR 1BR', 'SAFMR 1BR - 90% Payment Standard', 'SAFMR 1BR - 110% Payment Standard'),
-                    2: ('SAFMR 2BR', 'SAFMR 2BR - 90% Payment Standard', 'SAFMR 2BR - 110% Payment Standard'),
-                    3: ('SAFMR 3BR', 'SAFMR 3BR - 90% Payment Standard', 'SAFMR 3BR - 110% Payment Standard'),
-                    4: ('SAFMR 4BR', 'SAFMR 4BR - 90% Payment Standard', 'SAFMR 4BR - 110% Payment Standard')
-                }
-                columns = bedroom_map.get(bedrooms)
-
-                standard_rent = record.iloc[0].get(columns[0])
-                rent_90 = record.iloc[0].get(columns[1])
-                rent_110 = record.iloc[0].get(columns[2])
-
-                if pd.isna(standard_rent) or pd.isna(rent_90) or pd.isna(rent_110):
-                    st.error("❌ Rent information not available.")
-                else:
-                    bedroom_label = {
-                        0: 'Efficiency',
-                        1: '1 Bedroom',
-                        2: '2 Bedrooms',
-                        3: '3 Bedrooms',
-                        4: '4 Bedrooms'
-                    }.get(bedrooms, f'{bedrooms}BR')
-
-                    result_df = pd.DataFrame({
-                        "Bedroom Size": [bedroom_label],
-                        "Standard FMR": [f"${int(standard_rent):,}"],
-                        "90% Payment": [f"${int(rent_90):,}"],
-                        "110% Payment": [f"${int(rent_110):,}"]
-                    })
-
-                    st.success("✅ Estimated FMR Found:")
-                    st.table(result_df)
-
 # --- Highest Paying ZIPs Mode ---
-elif st.session_state["mode"] == "Highest Paying ZIPs":
+if st.session_state["mode"] == "Highest Paying ZIPs":
     selected_state = st.selectbox("Select State:", valid_states, key="state_select")
     bedrooms = st.selectbox("Select Bedroom Size:", options=[0,1,2,3,4], format_func=lambda x: f"{x} Bedroom(s)" if x > 0 else "Efficiency", key="high_bedroom_select")
 
     rent_type = st.selectbox("Select Rent Type:", options=["Standard FMR", "90% Payment", "110% Payment"], key="rent_type_select")
+
+    # Minimum and Maximum Rent Input Fields
+    min_rent = st.number_input("Minimum Rent ($)", min_value=0, value=0, step=500)
+    max_rent = st.number_input("Maximum Rent ($)", min_value=0, value=10000, step=500)
 
     bedroom_map = {
         0: ('SAFMR 0BR', 'SAFMR 0BR - 90% Payment Standard', 'SAFMR 0BR - 110% Payment Standard'),
@@ -119,8 +74,12 @@ elif st.session_state["mode"] == "Highest Paying ZIPs":
 
     selected_rent_col = bedroom_map.get(bedrooms)[rent_column_map[rent_type]]
 
+    # Filter the DataFrame based on the selected state and rent range
     filtered = fmr_df[fmr_df["State"] == selected_state]
     filtered = filtered[filtered[selected_rent_col].notna()]
+
+    # Apply rent range filter
+    filtered = filtered[(filtered[selected_rent_col] >= min_rent) & (filtered[selected_rent_col] <= max_rent)]
 
     # Add sorting functionality
     sort_order = st.selectbox("Sort by:", ["Ascending", "Descending"], key="sort_order")
@@ -135,8 +94,11 @@ elif st.session_state["mode"] == "Highest Paying ZIPs":
         "Rent Amount": top_results[selected_rent_col].apply(lambda x: f"${int(x):,}")
     }).reset_index(drop=True)
 
-    st.success(f"✅ Top {len(top_display)} Highest Paying ZIP Codes in {selected_state}:")
-    st.table(top_display)
+    if top_display.empty:
+        st.warning("No ZIP codes found in the selected rent range.")
+    else:
+        st.success(f"✅ Top ZIP Codes with Rent between ${min_rent:,} and ${max_rent:,} in {selected_state}:")
+        st.table(top_display)
 
     if len(filtered) > len(top_display):
         if st.button("Show more"):
