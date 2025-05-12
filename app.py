@@ -39,16 +39,19 @@ with col1:
     if st.button("🏡 FMR Rental Data"):
         st.session_state["mode"] = "FMR Rental Data"
         st.session_state["num_results"] = 10
+        st.write(f"Mode set to: {st.session_state['mode']}")  # Debug output
 
 with col2:
     if st.button("💰 Highest Paying ZIPs"):
         st.session_state["mode"] = "Highest Paying ZIPs"
         st.session_state["num_results"] = 10
+        st.write(f"Mode set to: {st.session_state['mode']}")  # Debug output
 
 st.divider()
 
 # --- FMR Rental Data Mode ---
 if st.session_state["mode"] == "FMR Rental Data":
+    st.write("Displaying FMR Rental Data...")
     zip_code = st.text_input("Enter ZIP Code (5 digits):", key="zip_input")
     bedrooms = st.selectbox("Select Number of Bedrooms:", options=[0,1,2,3,4], format_func=lambda x: f"{x} Bedroom(s)" if x > 0 else "Efficiency", key="bedroom_select")
 
@@ -98,6 +101,7 @@ if st.session_state["mode"] == "FMR Rental Data":
 
 # --- Highest Paying ZIPs Mode ---
 elif st.session_state["mode"] == "Highest Paying ZIPs":
+    st.write("Displaying Highest Paying ZIPs...")
     selected_state = st.selectbox("Select State:", valid_states, key="state_select")
     bedrooms = st.selectbox("Select Bedroom Size:", options=[0,1,2,3,4], format_func=lambda x: f"{x} Bedroom(s)" if x > 0 else "Efficiency", key="high_bedroom_select")
 
