@@ -1,9 +1,9 @@
 import streamlit as st
 import pandas as pd
 
-st.set_page_config(page_title="Fair Market Rent Finder", layout="centered")
+st.set_page_config(page_title="Housing Tools App", layout="centered")
 
-# --- Load your FMR data ---
+# --- Load FMR data ---
 @st.cache_data
 def load_fmr_data():
     try:
@@ -22,40 +22,40 @@ if "mode" not in st.session_state:
 if "num_results" not in st.session_state:
     st.session_state["num_results"] = 10  # Default top 10
 
-# --- Extract clean 2-letter State Codes ---
 if "State" not in fmr_df.columns:
     fmr_df["State"] = fmr_df["HUD Fair Market Rent Area Name"].apply(lambda x: x.split(",")[-1].strip()[:2])
 
 valid_states = sorted(fmr_df["State"].dropna().unique().tolist())
 
-# --- Streamlit App UI ---
-st.title("🏠 Fair Market Rent (FMR) Finder")
-st.write("Find the HUD 2025 FMR Rent by ZIP Code and Bedroom Size.")
+# --- Main title ---
+st.title("🏠 Housing Tools App")
 
 # --- Mode Buttons ---
-col1, col2 = st.columns(2)
+col1, col2, col3 = st.columns(3)
 
 with col1:
     if st.button("🏡 FMR Rental Data"):
         st.session_state["mode"] = "FMR Rental Data"
         st.session_state["num_results"] = 10
-        st.write(f"Mode set to: {st.session_state['mode']}")  # Debug output
 
 with col2:
     if st.button("💰 Highest Paying ZIPs"):
         st.session_state["mode"] = "Highest Paying ZIPs"
         st.session_state["num_results"] = 10
-        st.write(f"Mode set to: {st.session_state['mode']}")  # Debug output
+
+with col3:
+    if st.button("📈 Rent vs Buy Calculator"):
+        st.session_state["mode"] = "Rent vs Buy Calculator"
 
 st.divider()
 
-# --- FMR Rental Data Mode ---
+# --- FMR Rental Data ---
 if st.session_state["mode"] == "FMR Rental Data":
-    st.write("Displaying FMR Rental Data...")
-    zip_code = st.text_input("Enter ZIP Code (5 digits):", key="zip_input")
-    bedrooms = st.selectbox("Select Number of Bedrooms:", options=[0,1,2,3,4], format_func=lambda x: f"{x} Bedroom(s)" if x > 0 else "Efficiency", key="bedroom_select")
+    st.subheader("FMR Rental Data Finder")
+    zip_code = st.text_input("Enter ZIP Code (5 digits):")
+    bedrooms = st.selectbox("Select Number of Bedrooms:", options=[0,1,2,3,4], format_func=lambda x: f"{x} Bedroom(s)" if x > 0 else "Efficiency")
 
-    if st.button("Find Rent", key="find_rent_button"):
+    if st.button("Find Rent"):
         if not zip_code:
             st.warning("Please enter a valid ZIP code.")
         else:
@@ -99,15 +99,12 @@ if st.session_state["mode"] == "FMR Rental Data":
                     st.success("✅ Estimated FMR Found:")
                     st.table(result_df)
 
-# --- Highest Paying ZIPs Mode ---
+# --- Highest Paying ZIPs ---
 elif st.session_state["mode"] == "Highest Paying ZIPs":
-    st.write("Displaying Highest Paying ZIPs...")
-    selected_state = st.selectbox("Select State:", valid_states, key="state_select")
-    bedrooms = st.selectbox("Select Bedroom Size:", options=[0,1,2,3,4], format_func=lambda x: f"{x} Bedroom(s)" if x > 0 else "Efficiency", key="high_bedroom_select")
-
-    rent_type = st.selectbox("Select Rent Type:", options=["Standard FMR", "90% Payment", "110% Payment"], key="rent_type_select")
-
-    # Minimum and Maximum Rent Input Fields
+    st.subheader("Highest Paying ZIPs")
+    selected_state = st.selectbox("Select State:", valid_states)
+    bedrooms = st.selectbox("Select Bedroom Size:", options=[0,1,2,3,4], format_func=lambda x: f"{x} Bedroom(s)" if x > 0 else "Efficiency")
+    rent_type = st.selectbox("Select Rent Type:", options=["Standard FMR", "90% Payment", "110% Payment"])
     min_rent = st.number_input("Minimum Rent ($)", min_value=0, value=0, step=500)
     max_rent = st.number_input("Maximum Rent ($)", min_value=0, value=10000, step=500)
 
@@ -126,21 +123,12 @@ elif st.session_state["mode"] == "Highest Paying ZIPs":
     }
 
     selected_rent_col = bedroom_map.get(bedrooms)[rent_column_map[rent_type]]
-
-    # Filter the DataFrame based on the selected state and rent range
-    filtered = fmr_df[fmr_df["State"] == selected_state]
-    filtered = filtered[filtered[selected_rent_col].notna()]
-
-    # Apply rent range filter
+    filtered = fmr_df[(fmr_df["State"] == selected_state) & fmr_df[selected_rent_col].notna()]
     filtered = filtered[(filtered[selected_rent_col] >= min_rent) & (filtered[selected_rent_col] <= max_rent)]
 
-    # Add sorting functionality
-    sort_order = st.selectbox("Sort by:", ["Ascending", "Descending"], key="sort_order")
-
-    if sort_order == "Ascending":
-        top_results = filtered[['ZIP Code', selected_rent_col]].sort_values(by=selected_rent_col, ascending=True)
-    else:
-        top_results = filtered[['ZIP Code', selected_rent_col]].sort_values(by=selected_rent_col, ascending=False)
+    sort_order = st.selectbox("Sort by:", ["Ascending", "Descending"])
+    top_results = filtered[['ZIP Code', selected_rent_col]].sort_values(
+        by=selected_rent_col, ascending=(sort_order == "Ascending"))
 
     top_display = pd.DataFrame({
         "ZIP Code": top_results['ZIP Code'].astype(str),
@@ -153,6 +141,41 @@ elif st.session_state["mode"] == "Highest Paying ZIPs":
         st.success(f"✅ Top ZIP Codes with Rent between ${min_rent:,} and ${max_rent:,} in {selected_state}:")
         st.table(top_display)
 
-    if len(filtered) > len(top_display):
-        if st.button("Show more"):
-            st.session_state["num_results"] += 10
+# --- Rent vs Buy Calculator ---
+elif st.session_state["mode"] == "Rent vs Buy Calculator":
+    st.subheader("Rent vs Buy Calculator")
+
+    def parse_input(text):
+        try:
+            return float(text)
+        except:
+            return 0.0
+
+    rent = parse_input(st.text_input("Monthly rent ($)*", placeholder="e.g. 2500"))
+    price = parse_input(st.text_input("Home price ($)*", placeholder="e.g. 600000"))
+    down_payment_pct = parse_input(st.text_input("Down payment (%)*", placeholder="e.g. 20"))
+    mortgage_rate = parse_input(st.text_input("Mortgage rate (%)*", placeholder="e.g. 6.5"))
+    loan_term = parse_input(st.text_input("Loan term (years)*", placeholder="e.g. 30"))
+    property_tax = parse_input(st.text_input("Property tax per year ($)*", placeholder="e.g. 6000"))
+    rent_increase = parse_input(st.text_input("Annual rent increase (%)", placeholder="e.g. 3"))
+    rent_insurance = parse_input(st.text_input("Renters insurance per year ($)", placeholder="e.g. 200"))
+    home_insurance = parse_input(st.text_input("Homeowners insurance per year ($)", placeholder="e.g. 1500"))
+    maintenance = parse_input(st.text_input("Annual maintenance ($)", placeholder="e.g. 6000"))
+    appreciation = parse_input(st.text_input("Home appreciation (%)", placeholder="e.g. 3"))
+    sell_cost_pct = parse_input(st.text_input("Selling cost (% of final home price)", placeholder="e.g. 7"))
+    years = st.slider("Years you plan to stay", 1, 30, 7)
+
+    if st.button("Check Rent or Buy"):
+        missing = []
+        if rent == 0: missing.append("Monthly rent ($)")
+        if price == 0: missing.append("Home price ($)")
+        if down_payment_pct == 0: missing.append("Down payment (%)")
+        if mortgage_rate == 0: missing.append("Mortgage rate (%)")
+        if loan_term == 0: missing.append("Loan term (years)")
+        if property_tax == 0: missing.append("Property tax per year ($)")
+        
+        if missing:
+            st.warning(f"Please provide valid values for: {', '.join(missing)}")
+        else:
+            # You can paste the Rent vs Buy calculation logic here
+            st.success("✅ Example result — insert Rent vs Buy logic here!")
